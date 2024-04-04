@@ -1,7 +1,8 @@
 
 import express from "express";
 import Userdetails from "../model/User.js";
-import bcrypt from 'bcrypt';
+
+import { Resend } from 'resend';
 import authRoute from "./authRoute.js";
 import cloudinary from "cloudinary";
 import fs from "fs";
@@ -15,6 +16,17 @@ cloudinary.config({
   api_secret: 'qL5clSKapy3dgThOSCy__Iy-JdY'
 });
 const upload = multer({ dest: 'uploads/' });
+
+const resend = new Resend('re_CzvfRSdK_8tHJjHQkVdRpes5soekPYgsy');
+// Resend is used for test email only , to work for all emails we need domain 
+const sendMail = () => {
+  resend.emails.send({
+    from: 'onboarding@resend.dev',
+    to: 'mahanthivikas965@gmail.com',
+    subject: 'Hello World',
+    html: '<p style="width:50%; padding:20px; display:flex; align-items:center;justify-content: center;background:lightblue;boxsizing:border-box;">Welcome To our elearning platform <strong>mahanthivikas965@gmail.com</strong>!</p>'
+  });
+}
 
 const router = express.Router();
 router.put('/user/image',authRoute,  upload.single('file'),async (req, res) => {
@@ -145,4 +157,41 @@ router.get("/enrolled-courses", authRoute, async (req, res) => {
     }
 });
 
+
+router.get("/fetchcourses", async (req, res) => {
+    try {
+        const { category, level, page, limit } = req.query;
+        let query = {};
+
+        // Apply filters based on query parameters
+        if (category) {
+            query.category = category;
+        }
+        if (level) {
+            query.level = level;
+        }
+
+        // Pagination setup
+        const pageNumber = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNumber - 1) * pageSize;
+
+        // Execute query with filters and pagination
+        const courses = await Courses.find(query)
+            .skip(skip)
+            .limit(pageSize);
+
+        // Count total number of courses without pagination
+        const totalCount = await Courses.countDocuments(query);
+
+        res.status(200).json({
+            courses,
+            currentPage: pageNumber,
+            totalPages: Math.ceil(totalCount / pageSize)
+        });
+    } catch (err) {
+        console.error("Error fetching courses:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
 export default router;
